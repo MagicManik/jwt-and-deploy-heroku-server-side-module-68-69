@@ -11,11 +11,35 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+
+
+
+
+
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 // module: 68; video: 7
 function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
-    console.log('inside verifyJWT', authHeader)
+    if (!authHeader) {
+        return res.status(401).send({ message: 'unauthorized access' });
+    }
+    const token = authHeader.split(' ')[1]
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(403).send({ message: 'forbidden access' });
+        }
+        console.log('decoded', decoded);
+        req.decoded = decoded;
+        next();
+    })
 }
+
+
+
+
+
+
+
 
 
 // _______________ CONNECTED TO THE MONGODB PROJECT __________
@@ -68,8 +92,6 @@ async function run() {
 
 
 
-
-
         // brand new collection to insert order data
         // insert data in my mongodb database
         app.post('/order', async (req, res) => {
@@ -79,15 +101,35 @@ async function run() {
         })
 
 
+
+
+
+
+
+
+
+        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         // get or find order data of user
-        app.get('/order', async (req, res) => {
+        app.get('/order', verifyJWT, async (req, res) => {
+            const decodedEmail = req.decoded.email;
             const email = req.query.email;
-            // console.log(email)
-            const query = { email: email };
-            const cursor = orderCollection.find(query);
-            const result = await cursor.toArray();
-            res.send(result);
+            if (email === decodedEmail) {
+                const query = { email: email };
+                const cursor = orderCollection.find(query);
+                const orders = await cursor.toArray();
+                res.send(orders);
+            }
+            else {
+                res.status(403).send({ message: 'forbidden access' })
+            }
         })
+
+
+
+
+
+
+
 
 
 
@@ -99,7 +141,6 @@ async function run() {
             const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d' });
             res.send({ accessToken });
         })
-
 
 
     }
